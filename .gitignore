@@ -1,0 +1,5 @@
+.env
+venv
+.idea/
+app/__pycache__
+app/services/geo_files/belarus-251117.osm.pbf
