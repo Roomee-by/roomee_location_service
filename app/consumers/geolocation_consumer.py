@@ -10,6 +10,22 @@ READY_STREAM = "geo_ready_posts"
 
 
 async def geolocation_consumer():
+    """
+    Обрабатывает входящие raw_posts, добавляет к ним гео-информацию
+    и отправляет в READY_STREAM.
+
+    Поток данных:
+        Parser service → (raw_posts) → Location  service
+        Location service → (geo_ready_posts) → Posts service
+
+    Операции:
+        1. Чтение сообщений из Redis Stream.
+        2. Декодирование входных данных и изображений.
+        3. Определение района (disctrict) по координатам.
+        4. Поиск объектов инфраструктуры вокруг дома. (квартиры, метро, аптеки и т.п)
+        5. Формирование дополненного поста
+        6. Отправка результата в geo_ready_posts
+    """
     last_id = "0-0"
     logger.info("location service waiting for raw posts...")
 

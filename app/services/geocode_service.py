@@ -9,7 +9,17 @@ POI_DATA = {key: [] for key in settings.CITY_OBJECTS.keys()}
 
 
 class POIHandler(osmium.SimpleHandler):
+    """
+    Обработчик OSM-файла.
+
+    Сканиурет:
+    - nodes (узлы)
+    - ways (линейные объекты: здания, дороги, контуры)
+
+    И извлекает точки интереса (POI) по правилам, указанным в settings.CITY_OBJECTS
+    """
     def node(self, n):
+        """Обработка OSM-узлов (точек)"""
         if not n.tags:
             return
 
@@ -22,6 +32,7 @@ class POIHandler(osmium.SimpleHandler):
                 })
 
     def way(self, w):
+        """Обработка протяжённых объектов (way)."""
         for key, rule in settings.CITY_OBJECTS.items():
             if w.tags.get(rule["key"]) == rule["value"]:
                 if w.nodes:
@@ -43,6 +54,10 @@ handler.apply_file(settings.OSM_FILE, locations=True)
 
 
 def distance(lat1: float, lon1: float, lat2: float, lon2: float):
+    """
+    Вычисляет расстояние между двумя точками на сфере (формула хаверсинусов).
+    Возвращает расстояние в метрах
+    """
     R = 6371000
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
@@ -53,6 +68,18 @@ def distance(lat1: float, lon1: float, lat2: float, lon2: float):
 
 
 def find_nearby(lat: float, lon: float, radius: int = 500):
+    """
+    Ищет ближайшие объекты инфраструктуры в радиусе "radius",
+
+    Алгоритм:
+        1. Перебираем все POI определённого типа (из POI_DATA).
+        2. Вычисляем расстояние до каждой точки.
+        3. Если <= radius → добавляем в список.
+        4. Оставляем максимум 5 уникальных объектов для каждого типа.
+
+    Возвращает структуру вида:
+    {"nearby": {"pharmacy": [...], "school": [...], ... }}
+    """
     result = {k: set() for k in settings.CITY_OBJECTS.keys()}
     for key, poi_list in POI_DATA.items():
         for poi in poi_list:
@@ -64,6 +91,10 @@ def find_nearby(lat: float, lon: float, radius: int = 500):
 
 
 def load_district_geojson(city: str):
+    """
+    Загружает GeoJSON файл с полигонами районов города.
+    Возвращает список: [(district_name, shapely_polygon), ...]
+    """
     path = f"app/services/geo_files/{city}.geojson"
     with open(path, "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -82,12 +113,29 @@ def load_district_geojson(city: str):
 
 
 def get_unique_nearby_objects(nearby_objects: list, limit: int):
+    """
+    Возвращает список уникальных объектов, ограниченный limit.
+    Используется как утилита.
+    """
     if not nearby_objects or limit is None or limit < 1:
         return []
     return [obj for obj in set(nearby_objects) if obj != ''][:limit]
 
 
 def get_district_by_point(lat: float, lon: float, city: str):
+    """
+    Определяет, к какому району города принадлежит точка (lat, lon).
+
+    Алгоритм:
+        1. Загружаем полигоны районов
+        2. Создаём точку Point (lon, lat).
+        3. Проверяем, какой полигон содержит точку.
+        4. Если точка не попала ни в один район → возвращаем пустую строку.
+
+
+    Возвращает:
+        {"district": <name>}
+    """
     districts = load_district_geojson(city)
     if lat != 0.0 and lon != 0.0:
         point = Point(lon, lat)
